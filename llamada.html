@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Llamando...</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 360px; margin: 40px auto; padding: 16px; text-align: center; background: #f5f6f8; }
+    .numero { font-size: 20px; font-weight: 600; margin: 12px 0; }
+    #estado { color: #666; font-size: 14px; margin-bottom: 20px; }
+    .btn-colgar { width: 100%; height: 50px; background: #d9534f; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+    .btn-colgar:disabled { background: #ccc; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/gh/twilio/twilio-voice.js@2.18.3/dist/twilio.min.js"></script>
+</head>
+<body>
+  <p>Llamando a</p>
+  <p class="numero" id="numero-mostrado">-</p>
+  <p id="estado">Conectando...</p>
+  <button class="btn-colgar" id="btn-colgar" onclick="colgar()" disabled>Colgar</button>
+
+  <script>
+    // ⚠️ Actualiza esta URL si vuelves a implementar el Apps Script como una NUEVA implementación
+    // (no hace falta tocarla si solo subes una "Nueva versión" de la misma implementación).
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwlzI8egITNWA6SdvW5FZtMPcS00ax5yG8p1jac3A0OgEms2l19VE2PSO1raQqdaJDb/exec';
+
+    const params = new URLSearchParams(location.search);
+    const numero = params.get('numero');
+    const email = params.get('email');
+    const clave = params.get('clave');
+
+    document.getElementById('numero-mostrado').textContent = numero || '(sin número)';
+
+    let device = null;
+    let llamada = null;
+    let horaInicio = null;
+
+    async function iniciar() {
+      if (!numero || !email || !clave) {
+        document.getElementById('estado').textContent = 'Faltan datos para llamar.';
+        return;
+      }
+      try {
+        const resp = await fetch(`${APPS_SCRIPT_URL}?accion=token&email=${encodeURIComponent(email)}&clave=${encodeURIComponent(clave)}`);
+        const data = await resp.json();
+        if (!data.ok) {
+          document.getElementById('estado').textContent = 'No autorizado.';
+          return;
+        }
+        device = new Twilio.Device(data.token, { logLevel: 1 });
+        device.on('error', err => {
+          document.getElementById('estado').textContent = 'Error: ' + err.message;
+        });
+        device.on('registered', () => {
+          horaInicio = new Date();
+          document.getElementById('estado').textContent = 'Llamando...';
+          document.getElementById('btn-colgar').disabled = false;
+          device.connect({ params: { To: numero } }).then(call => {
+            llamada = call;
+            call.on('accept', () => { document.getElementById('estado').textContent = 'En llamada'; });
+            call.on('disconnect', () => finalizar());
+          }).catch(err => {
+            document.getElementById('estado').textContent = 'No se pudo conectar: ' + err.message;
+          });
+        });
+      } catch (err) {
+        document.getElementById('estado').textContent = 'Error de conexión: ' + err.message;
+      }
+    }
+
+    function colgar() {
+      if (llamada) llamada.disconnect();
+    }
+
+    function finalizar() {
+      const horaFin = new Date();
+      document.getElementById('btn-colgar').disabled = true;
+      document.getElementById('estado').textContent = 'Llamada finalizada. Puedes cerrar esta ventana.';
+      if (window.opener) {
+        window.opener.postMessage({
+          tipo: 'llamada_finalizada',
+          horaInicio: (horaInicio || new Date()).toISOString(),
+          horaFin: horaFin.toISOString()
+        }, '*');
+      }
+      setTimeout(() => window.close(), 1200);
+    }
+
+    iniciar();
+  </script>
+</body>
+</html>
