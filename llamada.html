@@ -1,92 +1,232 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Llamando...</title>
+  <base target="_top">
   <style>
-    body { font-family: Arial, sans-serif; max-width: 360px; margin: 40px auto; padding: 16px; text-align: center; background: #f5f6f8; }
-    .numero { font-size: 20px; font-weight: 600; margin: 12px 0; }
-    #estado { color: #666; font-size: 14px; margin-bottom: 20px; }
-    .btn-colgar { width: 100%; height: 50px; background: #d9534f; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
-    .btn-colgar:disabled { background: #ccc; }
+    body { font-family: Arial, sans-serif; max-width: 420px; margin: 0 auto; padding: 12px; background: #f5f6f8; }
+    .card { background: #fff; border: 1px solid #e3e5e8; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .top { display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 8px; }
+    .nombre { font-weight: 600; font-size: 17px; margin: 0; }
+    .telefono { color: #666; font-size: 14px; margin: 4px 0 12px; }
+    .btn-llamar { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 46px;
+      background: #004481; color: #fff; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 15px; }
+    .btn-finalizar { display: flex; align-items: center; justify-content: center; width: 100%; height: 46px;
+      background: #d9534f; color: #fff; border-radius: 10px; border: none; font-weight: 600; font-size: 15px; margin-top: 8px; cursor: pointer; }
+    .btn-primario { width: 100%; height: 46px; background: #004481; color: #fff; border-radius: 10px; border: none; font-weight: 600; font-size: 15px; cursor: pointer; }
+    input, select, button { font-size: 14px; }
+    input[type=email] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; box-sizing: border-box; }
+    .selector { width: 100%; padding: 10px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #ccc; }
+    .rama-titulo { font-size: 12px; color: #888; margin: 14px 0 6px; text-transform: uppercase; }
+    .paleta-btn { display: block; width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 6px;
+      border-radius: 8px; border: 1px solid #ddd; background: #fafafa; cursor: pointer; }
+    .paleta-btn:hover { background: #eef3f8; }
+    .pausas { display: flex; gap: 8px; margin-top: 16px; }
+    .pausas button { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #ccc; background: #fff; }
+    .pausas button.activa { background: #004481; color: #fff; border-color: #004481; }
+    .vacio { text-align: center; color: #888; padding: 30px 0; }
+    .error { color: #d9534f; font-size: 13px; margin-bottom: 8px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 12px 0 4px; }
+    .stat { background: #f2f6fa; border-radius: 8px; padding: 10px; text-align: center; }
+    .stat-valor { font-size: 17px; font-weight: 700; color: #004481; line-height: 1.2; }
+    .stat-etiqueta { font-size: 11px; color: #888; margin-top: 2px; }
+    .btn-toggle { width: 100%; background: none; border: none; color: #004481; font-size: 13px;
+      padding: 10px 0 4px; text-align: left; cursor: pointer; font-weight: 600; }
+    .detalle-item { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0;
+      border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+    .detalle-etiqueta { color: #888; }
+    .detalle-valor { font-weight: 600; text-align: right; }
   </style>
-  <script src="https://cdn.jsdelivr.net/gh/twilio/twilio-voice.js@2.18.3/dist/twilio.min.js"></script>
 </head>
 <body>
-  <p>Llamando a</p>
-  <p class="numero" id="numero-mostrado">-</p>
-  <p id="estado">Conectando...</p>
-  <button class="btn-colgar" id="btn-colgar" onclick="colgar()" disabled>Colgar</button>
+
+  <div id="zona-login" class="card">
+    <p class="nombre" style="margin-bottom:12px;">Ingresa tus datos</p>
+    <p id="login-error" class="error"></p>
+    <input type="email" id="input-email" placeholder="tucorreo@gmail.com" autocomplete="email">
+    <input type="password" id="input-clave" placeholder="Clave" autocomplete="current-password">
+    <button class="btn-primario" onclick="ingresar()">Ingresar</button>
+  </div>
+
+  <div id="app" style="display:none;">
+    <div id="selector-campania" style="display:none;">
+      <select id="campania-select" class="selector"></select>
+    </div>
+
+    <div id="zona-lead"></div>
+
+    <div class="pausas">
+      <button onclick="pausa('pausa_bano', this)">Pausa baño</button>
+      <button onclick="pausa('pausa_almuerzo', this)">Pausa almuerzo</button>
+    </div>
+  </div>
 
   <script>
-    // ⚠️ Actualiza esta URL si vuelves a implementar el Apps Script como una NUEVA implementación
-    // (no hace falta tocarla si solo subes una "Nueva versión" de la misma implementación).
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwlzI8egITNWA6SdvW5FZtMPcS00ax5yG8p1jac3A0OgEms2l19VE2PSO1raQqdaJDb/exec';
-
-    const params = new URLSearchParams(location.search);
-    const numero = params.get('numero');
-    const email = params.get('email');
-    const clave = params.get('clave');
-
-    document.getElementById('numero-mostrado').textContent = numero || '(sin número)';
-
-    let device = null;
-    let llamada = null;
+    let miEmail = null;
+    let miClave = null;
+    let campanias = [];
+    let campaniaActual = null;
+    let leadActual = null;
     let horaInicio = null;
+    let pausaActiva = null;
+    let catalogoCache = null;
 
-    async function iniciar() {
-      if (!numero || !email || !clave) {
-        document.getElementById('estado').textContent = 'Faltan datos para llamar.';
+    // Recuerda el último correo usado en este navegador (no es autenticación, solo comodidad)
+    const emailGuardado = localStorage.getItem('piloto_email');
+    if (emailGuardado) document.getElementById('input-email').value = emailGuardado;
+
+    // Escucha el aviso de la página puente cuando termina una llamada
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.tipo === 'llamada_finalizada') {
+        horaInicio = new Date(e.data.horaInicio);
+        document.getElementById('btn-finalizar').style.display = 'none';
+        pintarPaleta(catalogoCache || {});
+      }
+    });
+
+    function ingresar() {
+      const email = document.getElementById('input-email').value.trim().toLowerCase();
+      const clave = document.getElementById('input-clave').value.trim();
+      document.getElementById('login-error').textContent = '';
+      if (!email || !clave) return;
+      google.script.run.withSuccessHandler(res => loginResultado(res, email, clave)).validarUsuario(email, clave);
+    }
+
+    function loginResultado(res, email, clave) {
+      if (!res.ok) {
+        document.getElementById('login-error').textContent = 'Correo o clave incorrectos. Contacta al administrador.';
         return;
       }
-      try {
-        const resp = await fetch(`${APPS_SCRIPT_URL}?accion=token&email=${encodeURIComponent(email)}&clave=${encodeURIComponent(clave)}`);
-        const data = await resp.json();
-        if (!data.ok) {
-          document.getElementById('estado').textContent = 'No autorizado.';
-          return;
+      miEmail = email;
+      miClave = clave;
+      campanias = res.campanias;
+      campaniaActual = campanias[0];
+      localStorage.setItem('piloto_email', email);
+
+      document.getElementById('zona-login').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+
+      if (campanias.length > 1) {
+        const cont = document.getElementById('selector-campania');
+        const sel = document.getElementById('campania-select');
+        sel.innerHTML = '';
+        campanias.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c; opt.textContent = c;
+          sel.appendChild(opt);
+        });
+        sel.onchange = () => { campaniaActual = sel.value; cargarSiguienteLead(); };
+        cont.style.display = 'block';
+      }
+
+      google.script.run.withSuccessHandler(g => { catalogoCache = g; }).getCatalogoAgrupado();
+      cargarSiguienteLead();
+    }
+
+    function cargarSiguienteLead() {
+      document.getElementById('zona-lead').innerHTML = '<p class="vacio">Buscando siguiente lead...</p>';
+      google.script.run.withSuccessHandler(mostrarLead).getSiguienteLead(campaniaActual, miEmail);
+    }
+
+    function filaInfo(etiqueta, valor) {
+      return `<div class="detalle-item"><span class="detalle-etiqueta">${etiqueta}</span><span class="detalle-valor">${valor}</span></div>`;
+    }
+
+    function mostrarLead(lead) {
+      leadActual = lead;
+      horaInicio = null;
+      const zona = document.getElementById('zona-lead');
+      if (!lead) {
+        zona.innerHTML = '<div class="card vacio">No hay leads disponibles ahora en esta campaña (respetando descanso y barridos).</div>';
+        return;
+      }
+      const destacados = lead.detalle.filter(d => d.destacado);
+      const detalles = lead.detalle.filter(d => !d.destacado);
+
+      zona.innerHTML = `
+        <div class="card">
+          <div class="top"><span>${campaniaActual}</span><span>Barrido ${lead.barrido}</span></div>
+          <p class="nombre">${lead.nombre}</p>
+          <p class="telefono">${lead.telefono} (${lead.numeroUsado})${lead.prioridadLabel ? ' · ' + lead.prioridadLabel : ''}</p>
+
+          ${destacados.length ? `<div class="stats-grid">${destacados.map(d => `
+            <div class="stat">
+              <div class="stat-valor">${d.valor}</div>
+              <div class="stat-etiqueta">${d.etiqueta}</div>
+            </div>`).join('')}</div>` : ''}
+
+          ${detalles.length ? `
+            <button class="btn-toggle" onclick="toggleDetalles()"><span id="toggle-texto">Ver más detalles ▾</span></button>
+            <div id="tabla-detalles" style="display:none;">${detalles.map(d => filaInfo(d.etiqueta, d.valor)).join('')}</div>
+          ` : ''}
+
+          <button class="btn-llamar" onclick="iniciarLlamada()">Llamar ahora</button>
+          <button id="btn-finalizar" class="btn-finalizar" style="display:none" onclick="finalizarLlamada()">Finalizar llamada</button>
+        </div>
+        <div id="paleta"></div>
+      `;
+    }
+
+    function toggleDetalles() {
+      const tabla = document.getElementById('tabla-detalles');
+      const texto = document.getElementById('toggle-texto');
+      const abierto = tabla.style.display !== 'none';
+      tabla.style.display = abierto ? 'none' : 'block';
+      texto.textContent = abierto ? 'Ver más detalles ▾' : 'Ocultar detalles ▴';
+    }
+
+    // IMPORTANTE: reemplaza esta URL por la de tu página puente publicada en GitHub Pages
+    const URL_PUENTE_LLAMADA = 'https://TU-USUARIO.github.io/TU-REPO/llamada.html';
+
+    function iniciarLlamada() {
+      const url = `${URL_PUENTE_LLAMADA}?numero=${encodeURIComponent(leadActual.telefono)}&email=${encodeURIComponent(miEmail)}&clave=${encodeURIComponent(miClave)}`;
+      window.open(url, 'llamada', 'width=380,height=420');
+      document.getElementById('btn-finalizar').style.display = 'flex';
+    }
+
+    function finalizarLlamada() {
+      // Respaldo manual: úsalo solo si la ventana de la llamada se cerró sin avisar
+      document.getElementById('btn-finalizar').style.display = 'none';
+      if (!horaInicio) horaInicio = new Date();
+      pintarPaleta(catalogoCache || {});
+    }
+
+    function pintarPaleta(grupos) {
+      const cont = document.getElementById('paleta');
+      let html = '';
+      Object.keys(grupos).forEach(rama => {
+        html += `<div class="rama-titulo">${rama}</div>`;
+        grupos[rama].forEach(item => {
+          html += `<button class="paleta-btn" onclick="seleccionarTipificacion('${item.codigo}')">${item.codigo} · ${item.detalle}</button>`;
+        });
+      });
+      cont.innerHTML = html;
+    }
+
+    function seleccionarTipificacion(codigo) {
+      document.getElementById('zona-lead').innerHTML = '<p class="vacio">Guardando...</p>';
+      google.script.run.withSuccessHandler(cargarSiguienteLead).registrarGestion(campaniaActual, leadActual.fila, {
+        dni: leadActual.dni,
+        numeroUsado: leadActual.numeroUsado,
+        horaInicio: horaInicio.toISOString(),
+        codigo: codigo,
+        email: miEmail
+      });
+    }
+
+    function pausa(tipo, btn) {
+      if (pausaActiva === tipo) {
+        google.script.run.registrarEvento(tipo, 'fin', miEmail);
+        pausaActiva = null;
+        btn.classList.remove('activa');
+      } else {
+        if (pausaActiva) {
+          document.querySelectorAll('.pausas button').forEach(b => b.classList.remove('activa'));
         }
-        device = new Twilio.Device(data.token, { logLevel: 1 });
-        device.on('error', err => {
-          document.getElementById('estado').textContent = 'Error: ' + err.message;
-        });
-        device.on('registered', () => {
-          horaInicio = new Date();
-          document.getElementById('estado').textContent = 'Llamando...';
-          document.getElementById('btn-colgar').disabled = false;
-          device.connect({ params: { To: numero } }).then(call => {
-            llamada = call;
-            call.on('accept', () => { document.getElementById('estado').textContent = 'En llamada'; });
-            call.on('disconnect', () => finalizar());
-          }).catch(err => {
-            document.getElementById('estado').textContent = 'No se pudo conectar: ' + err.message;
-          });
-        });
-      } catch (err) {
-        document.getElementById('estado').textContent = 'Error de conexión: ' + err.message;
+        google.script.run.registrarEvento(tipo, 'inicio', miEmail);
+        pausaActiva = tipo;
+        btn.classList.add('activa');
       }
     }
-
-    function colgar() {
-      if (llamada) llamada.disconnect();
-    }
-
-    function finalizar() {
-      const horaFin = new Date();
-      document.getElementById('btn-colgar').disabled = true;
-      document.getElementById('estado').textContent = 'Llamada finalizada. Puedes cerrar esta ventana.';
-      if (window.opener) {
-        window.opener.postMessage({
-          tipo: 'llamada_finalizada',
-          horaInicio: (horaInicio || new Date()).toISOString(),
-          horaFin: horaFin.toISOString()
-        }, '*');
-      }
-      setTimeout(() => window.close(), 1200);
-    }
-
-    iniciar();
   </script>
 </body>
 </html>
