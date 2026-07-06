@@ -16,8 +16,9 @@
 <body>
   <p>Llamando a</p>
   <p class="numero" id="numero-mostrado">-</p>
-  <p id="estado">Conectando...</p>
-  <button class="btn-colgar" id="btn-colgar" onclick="colgar()" disabled>Colgar</button>
+  <p id="estado">Toca "Llamar" para iniciar</p>
+  <button class="btn-colgar" id="btn-llamar" onclick="iniciar()" style="background:#004481;">Llamar</button>
+  <button class="btn-colgar" id="btn-colgar" onclick="colgar()" style="display:none;">Colgar</button>
 
   <script>
     // IMPORTANTE: actualiza esta URL si vuelves a implementar el Apps Script como una NUEVA implementación
@@ -40,6 +41,8 @@
         document.getElementById('estado').textContent = 'Faltan datos para llamar.';
         return;
       }
+      document.getElementById('btn-llamar').style.display = 'none';
+      document.getElementById('estado').textContent = 'Conectando...';
       try {
         const resp = await fetch(`${APPS_SCRIPT_URL}?accion=token&email=${encodeURIComponent(email)}&clave=${encodeURIComponent(clave)}`);
         const data = await resp.json();
@@ -54,7 +57,7 @@
         device.on('registered', () => {
           horaInicio = new Date();
           document.getElementById('estado').textContent = 'Llamando...';
-          document.getElementById('btn-colgar').disabled = false;
+          document.getElementById('btn-colgar').style.display = 'block';
           device.connect({ params: { To: numero } }).then(call => {
             llamada = call;
             call.on('accept', () => { document.getElementById('estado').textContent = 'En llamada'; });
@@ -64,7 +67,7 @@
           });
         });
       } catch (err) {
-        document.getElementById('estado').textContent = 'Error de conexión: ' + err.message;
+        document.getElementById('estado').textContent = 'Error de conexion: ' + err.message;
       }
     }
 
@@ -74,7 +77,7 @@
 
     function finalizar() {
       const horaFin = new Date();
-      document.getElementById('btn-colgar').disabled = true;
+      document.getElementById('btn-colgar').style.display = 'none';
       document.getElementById('estado').textContent = 'Llamada finalizada. Puedes cerrar esta ventana.';
       if (window.opener) {
         window.opener.postMessage({
@@ -86,7 +89,6 @@
       setTimeout(() => window.close(), 1200);
     }
 
-    iniciar();
   </script>
 </body>
 </html>
